@@ -1,5 +1,7 @@
 # roboBio
 
+Repositório: [github.com/team-titans-unb/roboBio](https://github.com/team-titans-unb/roboBio)
+
 Controle dos **servos de direção** (180°) de um robô de seis rodas via **Raspberry Pi** e placa **PCA9685**.
 
 Cada conjunto de roda usa:
