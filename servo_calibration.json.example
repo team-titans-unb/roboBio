@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "fleet_neutral": 90,
+  "i2c_bus": 1,
+  "i2c_address": 64,
+  "channels": {
+    "0": { "neutral": 90, "invert": false, "trim": 0, "min_limit": 0, "max_limit": 180 },
+    "1": { "neutral": 90, "invert": false, "trim": 0, "min_limit": 0, "max_limit": 180 },
+    "2": { "neutral": 90, "invert": false, "trim": 0, "min_limit": 0, "max_limit": 180 },
+    "3": { "neutral": 90, "invert": true, "trim": 0, "min_limit": 0, "max_limit": 180 },
+    "4": { "neutral": 90, "invert": true, "trim": 0, "min_limit": 0, "max_limit": 180 },
+    "5": { "neutral": 110, "invert": true, "trim": 0, "min_limit": 0, "max_limit": 180 }
+  }
+}

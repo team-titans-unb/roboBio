@@ -20,3 +20,6 @@ Thumbs.db
 *.log
 .env
 .env.*
+
+# Calibração gerada na Pi (copie .example como base)
+servo_calibration.json
