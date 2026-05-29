@@ -2,8 +2,10 @@
 """
 Calibração interativa dos servos de direção (motores 1–6 / canais 0–5).
 
-Salva neutro individual em servo_calibration.json. Quando todos recebem
-comando 90° (reto), cada motor usa o neutro calibrado — ex. motor 6 em 110°.
+Grava três posições por motor em servo_calibration.json:
+  frota 0°  → positions["0"]
+  frota 90° → positions["90"]  (reto / neutro)
+  frota 180° → positions["180"]
 
 Uso na Raspberry:
   ./venv/bin/python calibrate_servos.py
@@ -48,14 +50,25 @@ def print_help() -> None:
 Comandos:
   + / -     ±1° no motor em calibração
   ++ / --   ±5°
-  0 9 1     Atalhos: 0°, 90°, 180° (só este motor)
+  0 9 1     Mover este motor para 0°, 90° ou 180° (jog manual)
   v         Varredura lenta 0° → 180° → 0° (só este motor)
-  c         Definir posição ATUAL como neutro (centro calibrado)
-  a         Testar ALINHAMENTO: todos em 90° de frota (com calibração)
-  t         Testar posição de frota digitada (padrão 90)
-  p         Mostrar neutros salvos
-  s         Salvar em servo_calibration.json
+
+  GRAVAR posição atual para a frota (servo_pca9685.py 0 / 90 / 180):
+  g0        Grava como frota 0°
+  g9        Grava como frota 90° (reto)
+  g1        Grava como frota 180°
+  c         Atalho para g9 (neutro)
+
+  TESTE:
+  a         Frota 90° nos outros; este motor na posição atual
+  t         Testar ângulo de frota (padrão 90)
+  f0 f9 f1  Aplicar frota 0 / 90 / 180 em TODOS (com calibração)
+
+  p         Mostrar posições 0/90/180 salvas de todos
+  s         Salvar servo_calibration.json
+  i         Alternar inversão deste motor
   m         Escolher outro motor
+  h         Ajuda
   q         Sair (pergunta se salva)
 """
     )
@@ -96,7 +109,6 @@ def apply_fleet_pose(
     hold_channel: int | None = None,
     hold_logical: float | None = None,
 ) -> None:
-    """Todos na pose de frota; opcionalmente um canal em ângulo manual."""
     for ch in SERVO_CHANNELS:
         if hold_channel is not None and ch == hold_channel and hold_logical is not None:
             logical = hold_logical
@@ -106,15 +118,48 @@ def apply_fleet_pose(
         time.sleep(sp.STAGGER_S)
 
 
+def apply_fleet_all(pca, config: dict, fleet_key: str) -> None:
+    fleet_angle = float(fleet_key)
+    apply_fleet_pose(pca, config, fleet_angle)
+
+
+def save_fleet_position(
+    config: dict,
+    channel: int,
+    fleet_key: str,
+    logical: float,
+) -> None:
+    sc.set_fleet_position(config, channel, fleet_key, logical)
+    label = {"0": "0°", "90": "90° (reto)", "180": "180°"}[fleet_key]
+    print(
+        f"Gravado {motor_label(channel)} → frota {label} = {logical:.1f}° lógico "
+        f"(hw {sc.map_to_hardware(config, channel, logical):.1f}°)",
+    )
+
+
 def print_status(channel: int, logical: float, config: dict) -> None:
     entry = sc.get_channel(config, channel)
+    pos = sc.get_positions(config, channel)
     hw = sc.map_to_hardware(config, channel, logical)
-    fleet_neutral = float(config["fleet_neutral"])
     print(
-        f"\n{motor_label(channel)} | lógico: {logical:5.1f}° | hardware: {hw:5.1f}° | "
-        f"neutro salvo: {entry['neutral']:.1f}° | "
-        f"offset frota 90°: {entry['neutral'] - fleet_neutral:+.1f}°",
+        f"\n{motor_label(channel)} | jog: {logical:5.1f}° | hw: {hw:5.1f}°",
     )
+    print(
+        f"  Salvo → frota 0°={pos['0']:.1f}° | 90°={pos['90']:.1f}° | 180°={pos['180']:.1f}° | "
+        f"invert={entry['invert']}",
+    )
+
+
+def print_all_positions(config: dict) -> None:
+    print("\nPosições calibradas (ângulo lógico por motor):")
+    print(f"  {'Motor':<14} {'frota 0°':>8} {'frota 90°':>9} {'frota 180°':>10}  inv")
+    for ch in SERVO_CHANNELS:
+        pos = sc.get_positions(config, ch)
+        inv = sc.get_channel(config, ch)["invert"]
+        print(
+            f"  {motor_label(ch):<14} {pos['0']:>8.1f} {pos['90']:>9.1f} "
+            f"{pos['180']:>10.1f}  {inv}",
+        )
 
 
 def calibration_loop(
@@ -125,10 +170,14 @@ def calibration_loop(
 ) -> None:
     channel = start_channel if start_channel is not None else choose_motor()
     entry = sc.get_channel(config, channel)
-    logical = float(entry["neutral"])
+    logical = float(sc.get_positions(config, channel)["90"])
     dirty = False
 
     print_help()
+    print(
+        "\nCalibração em 3 pontos: alinhe cada motor e use g0 / g9 / g1 para gravar.\n"
+        "Depois teste com f0, f9, f1 (frota inteira)."
+    )
     print_status(channel, logical, config)
 
     while True:
@@ -146,13 +195,41 @@ def calibration_loop(
 
         if cmd == "m":
             channel = choose_motor()
-            entry = sc.get_channel(config, channel)
-            logical = float(entry["neutral"])
+            logical = float(sc.get_positions(config, channel)["90"])
             print_status(channel, logical, config)
             continue
 
         if cmd in ("h", "?"):
             print_help()
+            continue
+
+        if cmd in ("g0", "save0"):
+            save_fleet_position(config, channel, "0", logical)
+            dirty = True
+            print_status(channel, logical, config)
+            continue
+        if cmd in ("g9", "g90", "save90", "c"):
+            save_fleet_position(config, channel, "90", logical)
+            dirty = True
+            print_status(channel, logical, config)
+            continue
+        if cmd in ("g1", "g180", "save180"):
+            save_fleet_position(config, channel, "180", logical)
+            dirty = True
+            print_status(channel, logical, config)
+            continue
+
+        if cmd == "f0":
+            apply_fleet_all(pca, config, "0")
+            print("Frota 0° aplicada em todos.")
+            continue
+        if cmd in ("f9", "f90"):
+            apply_fleet_all(pca, config, "90")
+            print("Frota 90° aplicada em todos.")
+            continue
+        if cmd in ("f1", "f180"):
+            apply_fleet_all(pca, config, "180")
+            print("Frota 180° aplicada em todos.")
             continue
 
         if cmd == "+":
@@ -172,14 +249,8 @@ def calibration_loop(
         elif cmd == "v":
             sweep_one(pca, channel, config)
             continue
-        elif cmd == "c":
-            entry["neutral"] = round(logical, 1)
-            dirty = True
-            print(f"Neutro de {motor_label(channel)} definido em {entry['neutral']:.1f}°")
-            print_status(channel, logical, config)
-            continue
         elif cmd == "a":
-            print("Alinhamento: todos na frota 90°; este motor na posição atual.")
+            print("Frota 90° nos demais; este motor na posição atual.")
             apply_fleet_pose(
                 pca,
                 config,
@@ -187,7 +258,7 @@ def calibration_loop(
                 hold_channel=channel,
                 hold_logical=logical,
             )
-            print("Observe se está alinhado com os outros. Ajuste com +/- e use 'c' para salvar neutro.")
+            print("Ajuste com +/- e grave com g0 / g9 / g1.")
             continue
         elif cmd == "t":
             raw = input("Ângulo de frota para testar [90]: ").strip()
@@ -202,14 +273,7 @@ def calibration_loop(
             print(f"Frota em {fleet:.0f}° aplicada.")
             continue
         elif cmd == "p":
-            print("\nNeutros calibrados (frota neutro = {:.0f}°):".format(config["fleet_neutral"]))
-            for ch in SERVO_CHANNELS:
-                e = sc.get_channel(config, ch)
-                off = e["neutral"] - float(config["fleet_neutral"])
-                print(
-                    f"  {motor_label(ch)}: neutro={e['neutral']:.1f}° "
-                    f"offset={off:+.1f}° invert={e['invert']} trim={e['trim']:+.1f}",
-                )
+            print_all_positions(config)
             continue
         elif cmd == "s":
             sc.save_config(config, config_path)

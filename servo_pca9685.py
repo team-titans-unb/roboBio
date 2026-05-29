@@ -70,6 +70,10 @@ def load_calibration(config_path: str | None = None) -> None:
 
 def fleet_to_logical(channel: int, fleet_angle: float) -> float:
     """Converte comando da frota (ex. 90° reto) em ângulo lógico do canal."""
+    if _ACTIVE_CONFIG is not None:
+        import servo_config as sc
+
+        return sc.fleet_to_logical(_ACTIVE_CONFIG, channel, fleet_angle)
     offset = CHANNEL_NEUTRAL.get(channel, FLEET_NEUTRAL) - FLEET_NEUTRAL
     return max(0.0, min(180.0, float(fleet_angle) + offset))
 
