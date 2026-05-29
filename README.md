@@ -9,6 +9,7 @@ Cada roda tem:
 | Peça | Função | Controle |
 |------|--------|----------|
 | Servo 180° (canais 0–5) | **Direção** — gira o conjunto da roda | Este repositório |
+| Servo 90° (motor 6) | Curso menor — calibrar com `g0`/`g9`/`g1` | `calibrate_servos.py` |
 | Motor rotação contínua (no cubo) | **Tração** — frente/ré | Futuro (outro driver) |
 
 **Neutro de direção:** com todos em “reto”, use `90°` de frota. O motor 6 (ou outro) pode precisar de neutro diferente — use `calibrate_servos.py`.
@@ -86,6 +87,48 @@ sudo i2cdetect -y 1    # deve aparecer 40 na linha 40:
 
 ---
 
+## Referência rápida de comandos
+
+Ative o venv uma vez por sessão: `source venv/bin/activate`
+
+### Controle (`servo_pca9685.py`)
+
+| Comando | O que faz |
+|---------|-----------|
+| `./venv/bin/python servo_pca9685.py 90` | Frota reta (usa calibração JSON) |
+| `./venv/bin/python servo_pca9685.py 0` | Frota em 0° |
+| `./venv/bin/python servo_pca9685.py 180` | Frota em 180° |
+| `./venv/bin/python servo_pca9685.py -c 5 120` | Só motor 6 (canal 5) |
+| `./venv/bin/python servo_pca9685.py --sweep` | Varredura 0→180→0 (todos) |
+| `./venv/bin/python servo_pca9685.py --no-calibration 90` | Ignora JSON |
+
+### Calibração (`calibrate_servos.py`)
+
+| Comando / tecla | O que faz |
+|-----------------|-----------|
+| `./venv/bin/python calibrate_servos.py --motor 6` | Calibrar motor 6 |
+| `+` / `-` | Ajusta ±1° |
+| `g0` | Grava posição = frota **0°** |
+| `g9` ou `c` | Grava posição = frota **90°** (reto) |
+| `g1` | Grava posição = frota **180°** |
+| `f0` / `f9` / `f1` | Testa frota inteira em 0 / 90 / 180 |
+| `v` | Varredura do motor atual |
+| `p` | Mostra tabela 0/90/180 de todos |
+| `s` | Salva `servo_calibration.json` |
+| `m` | Troca de motor |
+| `q` | Sair |
+
+### Primeira calibração na Pi
+
+```bash
+cp servo_calibration.json.example servo_calibration.json   # opcional
+./venv/bin/python calibrate_servos.py --motor 6
+# g0 → g9 → g1 → f9 → s
+./venv/bin/python servo_pca9685.py 90
+```
+
+---
+
 ## Uso rápido (`servo_pca9685.py`)
 
 Sempre com venv: `source venv/bin/activate` ou `./venv/bin/python`.
@@ -129,71 +172,68 @@ Sempre com venv: `source venv/bin/activate` ou `./venv/bin/python`.
 
 Com `servo_calibration.json` na pasta:
 
-- `servo_pca9685.py 90` → cada motor usa seu **neutro** salvo (ex. motor 6 em 110° quando a frota pede 90°).
-- Copie o exemplo: `cp servo_calibration.json.example servo_calibration.json` e edite, ou gere com `calibrate_servos.py`.
+- `servo_pca9685.py 90` → cada motor usa as posições calibradas (`positions` 0 / 90 / 180).
+- Copie o exemplo: `cp servo_calibration.json.example servo_calibration.json` ou calibre com `calibrate_servos.py`.
 
 ---
 
 ## Calibração interativa (`calibrate_servos.py`)
 
-Para quando um motor (ex. **motor 6**) para **antes** de alinhar com os outros em 90°:
+Grava **três posições por motor**: onde ele fica quando a frota recebe **0°, 90° e 180°**.
 
 ```bash
 ./venv/bin/python calibrate_servos.py
 ./venv/bin/python calibrate_servos.py --motor 6
 ```
 
-### Fluxo sugerido (ex. motor 6)
+### Fluxo sugerido (ex. motor 6 — servo 90°)
 
-1. Escolha o motor **6** (canal 5).
-2. **`v`** — varredura lenta 0° → 180° → 0° (vê o curso).
-3. **`+`** / **`-`** — ajusta de 1° até ficar visualmente no meio.
-4. **`a`** — põe **todos** em 90° de frota; este motor fica na posição que você está ajustando → compare com os outros.
-5. **`c`** — define a posição atual como **neutro** desse motor.
-6. **`s`** — grava `servo_calibration.json`.
-7. **`q`** — sai.
+1. `./venv/bin/python calibrate_servos.py --motor 6`
+2. **`v`** — varredura; anote onde trava.
+3. Alinhe visualmente com a frota em **0°** → **`g0`**
+4. Alinhe **reto (90° de frota)** → **`g9`**
+5. Alinhe **180° de frota** → **`g1`**
+6. **`f0`**, **`f9`**, **`f1`** — testa todos os motores nos três pontos.
+7. **`s`** — salva o JSON.
 
 ### Comandos do menu
 
 | Tecla | Ação |
 |-------|------|
-| `+` / `-` | ±1° no motor em calibração |
+| `+` / `-` | ±1° |
 | `++` / `--` | ±5° |
-| `0` | Ir para 0° |
-| `9` | Ir para 90° (neutro de frota) |
-| `1` | Ir para 180° |
-| `v` | Varredura 0° → 180° → 0° |
-| `c` | **Salvar neutro** = posição atual |
-| `a` | **Testar alinhamento** — frota em 90°, este motor na posição atual |
-| `t` | Testar outro ângulo de frota (ex. 0 ou 180) |
-| `p` | Listar neutros salvos |
-| `i` | Alternar inversão deste motor |
-| `s` | Gravar arquivo JSON |
-| `m` | Escolher outro motor |
-| `h` | Ajuda |
-| `q` | Sair (pergunta se salva) |
+| `0` `9` `1` | Jog manual 0° / 90° / 180° |
+| `v` | Varredura |
+| **`g0`** | Gravar posição = frota **0°** |
+| **`g9`** / **`c`** | Gravar = frota **90°** |
+| **`g1`** | Gravar = frota **180°** |
+| **`f0`** **`f9`** **`f1`** | Frota inteira em 0 / 90 / 180 |
+| `a` | Frota 90° nos outros; este no jog atual |
+| `p` | Tabela 0/90/180 de todos |
+| `s` | Salvar arquivo |
+| `m` | Trocar motor |
+| `q` | Sair |
 
 ### Formato de `servo_calibration.json`
 
 ```json
 {
-  "fleet_neutral": 90,
+  "version": 2,
   "channels": {
     "5": {
-      "neutral": 110,
+      "positions": { "0": 55, "90": 90, "180": 125 },
       "invert": true,
-      "trim": 0
+      "min_limit": 45,
+      "max_limit": 135
     }
   }
 }
 ```
 
-- **`fleet_neutral`**: ângulo quando você manda “todos em 90°” no `servo_pca9685.py`.
-- **`neutral`** (por canal): onde **este** motor fica quando a frota está em `fleet_neutral`.
-- **`invert`**: espelhamento esquerda/direita.
-- **`trim`**: ajuste fino extra em graus (após inversão).
+- **`positions`**: ângulo lógico em frota 0 / 90 / 180 (valores intermediários são interpolados).
+- **`min_limit` / `max_limit`**: limite físico (útil no servo 90° do motor 6).
 
-O arquivo é gerado na Pi e **não** vai para o Git (está no `.gitignore`). Use `servo_calibration.json.example` como referência.
+O arquivo fica na Pi (`gitignore`). Veja `servo_calibration.json.example`.
 
 ---
 
@@ -248,7 +288,7 @@ roboBio/
 | Script OK, servo não mexe | Fonte 5 V no terminal V+; servo no canal certo |
 | `No Hardware I2C` (Blinka) | `--bus 1`; `sudo i2cdetect -y 1` |
 | Esquerda/direita opostas em `0` | Inversão em JSON ou `calibrate_servos.py` → `i` |
-| Motor 6 desalinhado em `90` | `calibrate_servos.py --motor 6` → ajustar → `c` → `s` |
+| Motor 6 desalinhado | `calibrate_servos.py --motor 6` → `g0` `g9` `g1` → `s` |
 | Quer ignorar calibração | `servo_pca9685.py --no-calibration 90` |
 
 ---
