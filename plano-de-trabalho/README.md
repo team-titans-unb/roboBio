@@ -1,6 +1,6 @@
 # Plano de Trabalho — Robô Bio
 
-> Transcrição fiel do plano de trabalho. Documento-fonte: [`Plano_de_trabalho_Bio_Felipe_das_Neves.pdf`](./Plano_de_trabalho_Bio_Felipe_das_Neves.pdf). Em caso de divergência, o PDF original prevalece.
+> Versão revisada após feedback do orientador (inclui hipótese científica, formulação da função de custo, análise de desempenho computacional e atualização de referências). Documento-fonte original: [`Plano_de_trabalho_Bio_Felipe_das_Neves.pdf`](./Plano_de_trabalho_Bio_Felipe_das_Neves.pdf).
 
 **Universidade de Brasília — Decanato de Pesquisa e Pós-Graduação**
 **Programa de Iniciação Científica – ProIC/UnB**
@@ -40,7 +40,7 @@ O projeto Robô Bio surgiu inicialmente como trabalho final da disciplina Fundam
 
 A presente proposta visa desenvolver uma nova versão do Robô Bio como uma plataforma modular de pesquisa em robótica móvel autônoma, incorporando visão computacional embarcada e algoritmos bioinspirados para otimização automática dos parâmetros do controlador PID permitindo a validação experimental de algoritmos de visão computacional, controle inteligente e otimização bioinspirada. A combinação dessas tecnologias permitirá investigar estratégias de controle inteligente para navegação autônoma baseada em percepção visual, contribuindo para o avanço das pesquisas em robótica móvel, sistemas embarcados e inteligência artificial aplicada que permitirá, em trabalhos futuros, a substituição dos métodos clássicos de visão computacional por modelos de aprendizado profundo para segmentação de pistas e navegação autônoma.
 
-Portanto, o projeto investigará a aplicação de algoritmos bioinspirados PSO e Differential Evolution para sintonia automática de controladores PID em uma plataforma robótica modular, utilizando visão computacional embarcada para navegação autônoma e telemetria em tempo real para análise quantitativa de desempenho.
+Diante desse contexto, formula-se a hipótese de que os algoritmos bioinspirados (PSO e DE) são capazes de convergir para conjuntos de parâmetros do controlador PID (Kp, Ki, Kd) que reduzem o erro quadrático médio (RMSE) de rastreamento da trajetória em pelo menos X% em relação à sintonia clássica de Ziegler-Nichols e à sintonia manual, mantendo a estabilidade do sistema em cenários de iluminação variável detectados por visão computacional embarcada, o percentual de referência a ser consolidado após o estabelecimento da linha de base experimental. Espera-se, ainda, que a otimização bioinspirada reduza a dependência de ajuste manual e o esforço de sintonia, e que seja possível identificar uma configuração de hardware e técnicas de otimização que viabilizem a execução conjunta, em tempo real, da visão computacional, do laço de controle e do processo de otimização populacional na plataforma embarcada.
 
 ### 3) Metodologia
 
@@ -130,6 +130,18 @@ As funções objetivo poderão considerar simultaneamente diferentes métricas d
 - Tempo de acomodação;
 - Consumo computacional.
 
+**Formulação da função de custo (fitness).** A sintonia automática será tratada como um problema de otimização no qual cada indivíduo/partícula representa um vetor de ganhos do controlador, θ = (Kp, Ki, Kd). O desempenho de cada candidato será avaliado por uma função de custo J(θ) calculada a partir dos dados de telemetria coletados durante a navegação. Como as métricas listadas são concorrentes, serão investigadas duas abordagens de modelagem:
+
+- **(a) Soma ponderada (escalarização).** As métricas, previamente normalizadas (ex.: min-max ou z-score, para evitar que grandezas de escalas distintas dominem o resultado), são combinadas em um único escalar:
+
+$$J(\theta) = w_1\,\text{RMSE}_e + w_2\,t_p + w_3\,\sigma_{lat} + w_4\,t_s + w_5\,C_{comp}$$
+
+  em que RMSE_e é o erro quadrático médio de rastreamento, t_p o tempo de percurso, σ_lat as oscilações laterais, t_s o tempo de acomodação e C_comp o custo computacional; os pesos w_i (com Σ w_i = 1) refletem a importância relativa de cada critério. Termos de penalidade serão somados para soluções que violem restrições (ex.: perda da linha/pista ou instabilidade).
+
+- **(b) Otimização multiobjetivo (Fronteira de Pareto).** Como os critérios frequentemente conflitam (reduzir o tempo de percurso, por exemplo, tende a aumentar as oscilações laterais), também será avaliada uma formulação multiobjetivo, gerando um conjunto de soluções não-dominadas (Fronteira de Pareto) por meio de variantes como MOPSO ou NSGA-II / DE multiobjetivo. Essa abordagem permite analisar explicitamente os *trade-offs* entre precisão de rastreamento, velocidade e custo computacional sem fixar pesos a priori.
+
+A escolha final entre escalarização e abordagem de Pareto será definida experimentalmente, comparando a qualidade das soluções, a interpretabilidade dos resultados e o custo computacional de cada estratégia na plataforma embarcada.
+
 Os parâmetros obtidos pelos algoritmos bioinspirados serão posteriormente comparados com métodos clássicos de sintonia PID, permitindo avaliar quantitativamente os ganhos obtidos pela abordagem proposta.
 
 #### Etapa 7: Programa Experimental
@@ -164,7 +176,17 @@ O principal objetivo será comparar:
 
 Os resultados serão avaliados através de métodos estatísticos e análise quantitativa de desempenho.
 
-#### Etapa 9: Consolidação dos Resultados e Produção Científica
+#### Etapa 9: Análise de Desempenho Computacional e Requisitos de Hardware
+
+A execução simultânea do pipeline de visão computacional (OpenCV), do laço de controle em tempo real e dos algoritmos de otimização populacional (PSO/DE) impõe carga significativa a plataformas embarcadas de baixo custo. Esta etapa investigará, de forma fundamentada em dados, os requisitos computacionais do sistema, em vez de fixar a plataforma de hardware a priori. Serão realizadas:
+
+- Caracterização (*profiling*) do uso de CPU, memória, temperatura e consumo energético durante a navegação;
+- Avaliação de estratégias de otimização de desempenho (redução de resolução da imagem / região de interesse, paralelização e *multiprocessing*, execução *offline* da sintonia versus *online*, entre outras);
+- Comparação entre diferentes plataformas candidatas (ex.: Raspberry Pi Zero 2W, Raspberry Pi 4/5 ou aceleradores dedicados), de modo a definir o hardware mínimo necessário para atender aos requisitos de tempo real.
+
+O objetivo é determinar qual combinação de hardware e técnicas de otimização é adequada ao projeto, identificando gargalos e os limites de viabilidade da execução embarcada.
+
+#### Etapa 10: Consolidação dos Resultados e Produção Científica
 
 Nesta etapa serão executadas as seguintes atividades:
 
@@ -174,7 +196,7 @@ Nesta etapa serão executadas as seguintes atividades:
 - Preparação de artigo científico;
 - Preparação de material para apresentação no Congresso de Iniciação Científica da Universidade de Brasília.
 
-A gestão do projeto adotará práticas de gerenciamento inspiradas nas metodologias PMI/PMBOK (PMI, 2000) e Scrum (Cruz, 2013), utilizando reuniões periódicas para acompanhamento das atividades, avaliação dos resultados e definição das ações corretivas necessárias. O desenvolvimento será conduzido de forma incremental, permitindo a evolução contínua do protótipo e a validação progressiva das hipóteses de pesquisa.
+A gestão do projeto adotará práticas de gerenciamento inspiradas nas metodologias PMI/PMBOK (PMI, 2021) e Scrum (Cruz, 2013), utilizando reuniões periódicas para acompanhamento das atividades, avaliação dos resultados e definição das ações corretivas necessárias. O desenvolvimento será conduzido de forma incremental, permitindo a evolução contínua do protótipo e a validação progressiva das hipóteses de pesquisa.
 
 ### 4) Bibliografia básica
 
@@ -185,7 +207,7 @@ A gestão do projeto adotará práticas de gerenciamento inspiradas nas metodolo
 - OGUTEN, T.; KABAS, O. PID Controller Optimization for Low-Cost Line Follower Robots. 2021.
 - RIHEM, F.; ALJALOUD, K. Vision Navigation Based PID Control for Line Tracking Robot. 2023.
 - VARGAS TORRES, J.; SANTIAGO-PAZ, J. Robot Seguidor de Línea Basado en Visión Artificial con ROS y OpenCV. 2019.
-- PMI. A Guide to the Project Management Body of Knowledge. Editora Project Management Institute (PMI), Pennsylvania, 2000.
+- PMI. Guia de Conhecimento em Gerenciamento de Projetos (GUIA PMBOK). 7. ed. Project Management Institute (PMI), Pennsylvania, 2021.
 - Cruz, F. Scrum e PMBOK unidos no gerenciamento de projetos. Editora BRASPORT, São Paulo, 2013.
 - M. Voellmy and M. Ehrhardt: ExoMy: A Low Cost 3D Printed Rover. International Symposium on Artificial Intelligence, Robotics and Automation in Space (i-SAIRAS), 2020.
 
@@ -228,6 +250,12 @@ A integração entre visão computacional e controle inteligente representa atua
 
 Dessa forma, o presente trabalho busca investigar a aplicação conjunta de técnicas de visão computacional embarcada, otimização bioinspirada e controle PID em uma plataforma robótica modular, contribuindo para o avanço das pesquisas nas áreas de sistemas embarcados, inteligência artificial, controle inteligente e robótica móvel autônoma. Os resultados obtidos poderão servir como base para futuros estudos envolvendo aprendizado de máquina embarcado, navegação autônoma avançada, fusão sensorial e sistemas ciberfísicos.
 
+#### Hipótese Científica
+
+A hipótese central é que algoritmos bioinspirados (PSO e DE) convergem para conjuntos de parâmetros do controlador PID (Kp, Ki, Kd) que reduzem o erro quadrático médio (RMSE) de rastreamento da trajetória em pelo menos X% em relação à sintonia clássica de Ziegler-Nichols e à sintonia manual, mantendo a estabilidade do sistema em cenários de iluminação variável detectados por visão computacional embarcada. O percentual de referência será consolidado após o estabelecimento da linha de base experimental.
+
+A hipótese será testada de forma quantitativa, comparando as métricas de desempenho (Seção *Metodologia*, Etapas 6 a 8) entre os controladores ajustados manualmente, por métodos clássicos e por otimização bioinspirada, com tratamento estatístico dos resultados.
+
 #### Objetivo Geral
 
 Desenvolver e validar uma plataforma robótica móvel autônoma baseada em visão computacional embarcada e controle PID otimizado por algoritmos bioinspirados para navegação em pistas delimitadas visualmente.
@@ -244,6 +272,7 @@ Desenvolver e validar uma plataforma robótica móvel autônoma baseada em visã
 - Desenvolver infraestrutura de telemetria para monitoramento e armazenamento dos dados experimentais;
 - Comparar o desempenho entre métodos tradicionais de sintonia PID e métodos baseados em otimização bioinspirada;
 - Avaliar métricas de desempenho como erro lateral, RMSE da trajetória, estabilidade, velocidade média, tempo de percurso e taxa de sucesso da navegação;
+- Analisar o desempenho computacional do sistema embarcado com enfase no uso de CPU e memória, e determinar os requisitos de hardware necessários para a execução em tempo real da visão computacional, do controle e da otimização bioinspirada;
 - Produzir documentação técnica e científica dos resultados obtidos;
 - Estabelecer uma plataforma experimental que possa ser utilizada em futuras pesquisas nas áreas de robótica móvel, inteligência artificial e sistemas embarcados.
 
@@ -259,7 +288,7 @@ O Robô Bio encontra-se atualmente em fase de modelagem mecânica e integração
 
 #### Especificação de Bens de Capital
 
-- Raspberry Pi zero 2W e modelos superiores, bem como acessórios para processamento embarcado e execução dos algoritmos de visão computacional.
+- Plataformas embarcadas de processamento (ex.: Raspberry Pi Zero 2W e modelos superiores), bem como acessórios para processamento embarcado e execução dos algoritmos de visão computacional a definição final do hardware será orientada pela análise de desempenho computacional prevista na metodologia.
 - Câmera embarcada compatível com Raspberry Pi para aquisição de imagens e processamento visual da pista.
 - Impressoras 3D para fabricação de componentes estruturais do robô.
 - Estações de desenvolvimento para programação, análise de dados e treinamento dos algoritmos.
@@ -297,13 +326,13 @@ Os recursos disponíveis permitem a realização de todas as etapas previstas no
 
 **Mês 07:** Desenvolvimento do sistema de visão computacional para detecção e segmentação da pista; processamento de imagens em tempo real utilizando OpenCV.
 
-**Mês 08:** Integração entre visão computacional e sistema de controle; realização dos primeiros testes de navegação autônoma.
+**Mês 08:** Integração entre visão computacional e sistema de controle; realização dos primeiros testes de navegação autônoma; análise inicial de desempenho computacional analisando uso de CPU e memória.
 
 **Mês 09:** Implementação dos algoritmos bioinspirados para otimização automática dos parâmetros PID; definição das métricas de desempenho e função objetivo.
 
 **Mês 10:** Execução dos experimentos comparativos entre PID convencional e PID otimizado; coleta de telemetria e análise de desempenho em diferentes trajetórias.
 
-**Mês 11:** Tratamento estatístico dos resultados; avaliação da estabilidade, precisão, velocidade e robustez do sistema; redação do relatório técnico-científico.
+**Mês 11:** Tratamento estatístico dos resultados; avaliação da estabilidade, precisão, velocidade e robustez do sistema; análise de desempenho computacional e definição dos requisitos de hardware; redação do relatório técnico-científico.
 
 **Mês 12:** Consolidação dos resultados obtidos; preparação de artigo para publicação em evento e/ou periódico técnico-científico; preparação da apresentação para o Congresso de Iniciação Científica da UnB.
 
