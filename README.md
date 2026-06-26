@@ -2,6 +2,8 @@
 
 Repositório: [github.com/team-titans-unb/roboBio](https://github.com/team-titans-unb/roboBio)
 
+> **Documentação do projeto:** o plano de trabalho da Iniciação Científica (ProIC/UnB) está em [`plano-de-trabalho/`](./plano-de-trabalho/README.md), junto com o PDF original.
+
 Controle dos **servos de direção** (180°) de um robô de **seis rodas** via **Raspberry Pi** e placa **PCA9685** (Adafruit).
 
 Cada roda tem:
