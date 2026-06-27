@@ -118,31 +118,44 @@ Nessa etapa será estabelecida a linha de base experimental utilizada para compa
 
 #### Etapa 6: Implementação dos Algoritmos Bioinspirados
 
-Nesta etapa serão implementados algoritmos bioinspirados para realização da sintonia automática dos parâmetros do controlador PID. Serão inicialmente investigadas as técnicas Particle Swarm Optimization (PSO) e Differential Evolution (DE), devido à sua ampla utilização em problemas de otimização contínua e ajuste de controladores em sistemas robóticos (KIM; PRAKAPOVICH, 2021).
+Nesta etapa serão implementados algoritmos bioinspirados para realizar a sintonia automática dos parâmetros do controlador PID responsável pelo seguimento de trajetória do robô móvel. Serão inicialmente investigadas as técnicas *Particle Swarm Optimization* (PSO) e *Differential Evolution* (DE), devido à sua ampla aplicação em problemas de otimização contínua e aos resultados consistentes obtidos na sintonia de controladores PID em sistemas robóticos e de rastreamento de trajetória (OUYANG; PANO, 2015; PANO; OUYANG, 2014). Estudos comparativos mostram que tanto o PSO quanto o DE apresentam desempenho superior aos métodos clássicos de sintonia, principalmente em sistemas não lineares, sendo o DE particularmente eficiente na exploração do espaço de busca, enquanto o PSO apresenta elevada velocidade de convergência.
 
-Além dos algoritmos convencionais, serão estudadas estratégias de manutenção artificial de diversidade populacional visando reduzir problemas de convergência prematura e mínimos locais, aumentando a capacidade de exploração do espaço de busca. Os algoritmos serão executados utilizando dados experimentais obtidos pelo robô durante a navegação e terão como objetivo minimizar funções de custo relacionadas ao desempenho do sistema.
+Além dos algoritmos convencionais, serão estudadas estratégias de manutenção artificial da diversidade populacional, visando reduzir problemas de convergência prematura e aprisionamento em mínimos locais, limitações frequentemente observadas em algoritmos evolutivos aplicados à sintonia automática de controladores. Essas estratégias têm sido amplamente investigadas na literatura por aumentarem a capacidade de exploração do espaço de busca e a robustez das soluções obtidas.
 
-As funções objetivo poderão considerar simultaneamente diferentes métricas de desempenho, tais como:
+A sintonia do controlador será formulada como um problema de otimização contínua, no qual cada indivíduo (ou partícula) representa um vetor de parâmetros do controlador:
 
-- Erro médio quadrático de seguimento da trajetória;
-- Tempo total de percurso;
-- Oscilações laterais do robô;
-- Tempo de acomodação;
-- Consumo computacional.
+> **θ = (Kp, Ki, Kd)**
 
-**Formulação da função de custo (fitness).** A sintonia automática será tratada como um problema de otimização no qual cada indivíduo/partícula representa um vetor de ganhos do controlador, θ = (Kp, Ki, Kd). O desempenho de cada candidato será avaliado por uma função de custo J(θ) calculada a partir dos dados de telemetria coletados durante a navegação. Como as métricas listadas são concorrentes, serão investigadas duas abordagens de modelagem:
+Para cada solução candidata, o robô executará um percurso previamente definido, sendo registrados dados experimentais de telemetria, como erro de rastreamento, posição, velocidade, tempo de percurso e tempo de processamento. Essas informações serão utilizadas para calcular uma função objetivo (*fitness*), responsável por quantificar a qualidade de cada conjunto de ganhos do controlador.
 
-- **(a) Soma ponderada (escalarização).** As métricas, previamente normalizadas (ex.: min-max ou z-score, para evitar que grandezas de escalas distintas dominem o resultado), são combinadas em um único escalar:
+Diferentemente das abordagens tradicionais que utilizam apenas um único índice de desempenho, este trabalho empregará uma **função objetivo composta**, construída por meio da técnica de **soma ponderada** (*Weighted Sum Method*). Essa estratégia é amplamente utilizada em problemas de otimização multiobjetivo por permitir transformar múltiplos critérios conflitantes em uma única função escalar, mantendo baixo custo computacional e simplicidade de implementação quando comparada a técnicas de otimização de Pareto (MARLER; ARORA, 2010). Além disso, diversos trabalhos de sintonia automática de controladores utilizam funções objetivo compostas para equilibrar simultaneamente precisão, estabilidade e desempenho dinâmico do sistema.
 
-$$J(\theta) = w_1\,\text{RMSE}_e + w_2\,t_p + w_3\,\sigma_{lat} + w_4\,t_s + w_5\,C_{comp}$$
+Como as métricas consideradas apresentam diferentes unidades físicas e ordens de grandeza, todas serão previamente normalizadas para o intervalo [0,1], evitando que critérios numericamente maiores dominem o processo de otimização. A normalização constitui uma prática consolidada em métodos de escalarização por soma ponderada e melhora significativamente o balanceamento entre os diferentes objetivos considerados (MARLER; ARORA, 2010).
 
-  em que RMSE_e é o erro quadrático médio de rastreamento, t_p o tempo de percurso, σ_lat as oscilações laterais, t_s o tempo de acomodação e C_comp o custo computacional; os pesos w_i (com Σ w_i = 1) refletem a importância relativa de cada critério. Termos de penalidade serão somados para soluções que violem restrições (ex.: perda da linha/pista ou instabilidade).
+A função objetivo será definida por:
 
-- **(b) Otimização multiobjetivo (Fronteira de Pareto).** Como os critérios frequentemente conflitam (reduzir o tempo de percurso, por exemplo, tende a aumentar as oscilações laterais), também será avaliada uma formulação multiobjetivo, gerando um conjunto de soluções não-dominadas (Fronteira de Pareto) por meio de variantes como MOPSO ou NSGA-II / DE multiobjetivo. Essa abordagem permite analisar explicitamente os *trade-offs* entre precisão de rastreamento, velocidade e custo computacional sem fixar pesos a priori.
+> **J(θ) = w₁·RMSE + w₂·tp + w₃·σe + w₄·ts + w₅·Ccomp + P(θ)**
 
-A escolha final entre escalarização e abordagem de Pareto será definida experimentalmente, comparando a qualidade das soluções, a interpretabilidade dos resultados e o custo computacional de cada estratégia na plataforma embarcada.
+em que os pesos satisfazem **w₁ + w₂ + w₃ + w₄ + w₅ = 1** e cada métrica (RMSE, tp, σe, ts, Ccomp) corresponde ao seu valor já normalizado no intervalo [0,1]. O termo P(θ) representa a penalização aplicada a soluções inviáveis.
 
-Os parâmetros obtidos pelos algoritmos bioinspirados serão posteriormente comparados com métodos clássicos de sintonia PID, permitindo avaliar quantitativamente os ganhos obtidos pela abordagem proposta.
+O **RMSE (Root Mean Square Error)** será adotado como principal critério de desempenho, recebendo o maior peso na função objetivo por representar diretamente a precisão do seguimento da trajetória. Em aplicações de controle e robótica móvel, o RMSE é amplamente empregado para quantificar a qualidade do rastreamento, uma vez que penaliza de forma mais intensa erros de maior magnitude, tornando-o particularmente adequado para a avaliação de controladores PID (ÅSTRÖM; HÄGGLUND, 2006; SICILIANO et al., 2016).
+
+Os demais critérios atuarão como métricas complementares, permitindo avaliar aspectos importantes do comportamento dinâmico do robô, como rapidez, estabilidade e viabilidade de implementação em sistemas embarcados. Dessa forma, busca-se obter controladores que não apenas minimizem o erro de rastreamento, mas que também apresentem respostas suaves, rápidas e computacionalmente eficientes.
+
+A Tabela 1 apresenta a descrição das variáveis empregadas na função objetivo proposta.
+
+| Símbolo | Métrica | Justificativa | Forma de obtenção | Peso inicial |
+|---|---|---|---|:---:|
+| RMSE | Erro quadrático médio | Principal indicador da precisão do seguimento da trajetória. Penaliza erros elevados e é amplamente utilizado na avaliação de controladores. | Calculado a partir do erro lateral registrado durante toda a navegação. | 0,45 |
+| tp | Tempo de percurso | Favorece maior velocidade de deslocamento sem comprometer a estabilidade. | Diferença entre o instante inicial e final do percurso. | 0,20 |
+| σe | Desvio padrão do erro | Mede a estabilidade do robô durante o seguimento da linha, reduzindo oscilações laterais. | Calculado sobre o histórico do erro lateral. | 0,15 |
+| ts | Tempo de acomodação | Avalia a rapidez com que o controlador estabiliza após perturbações ou mudanças de trajetória. | Obtido experimentalmente durante os ensaios. | 0,10 |
+| Ccomp | Custo computacional | Garante que a solução seja compatível com a capacidade de processamento do sistema embarcado. | Tempo médio de execução do controlador. | 0,10 |
+| P(θ) | Penalização | Penaliza soluções inviáveis ou instáveis. | Aplicada em casos de perda da linha, saturação dos motores, instabilidade ou falha na conclusão do percurso. | Variável |
+
+Os pesos apresentados constituem uma configuração inicial baseada na importância esperada de cada métrica e poderão ser ajustados experimentalmente durante o desenvolvimento do projeto. Essa flexibilidade permite adaptar a função objetivo às características do robô e às condições observadas nos ensaios experimentais.
+
+Por fim, os ganhos Kp, Ki e Kd obtidos pelos algoritmos bioinspirados serão comparados com métodos clássicos de sintonia PID, como Ziegler-Nichols e Åström-Hägglund, permitindo avaliar quantitativamente os ganhos obtidos em termos de precisão de rastreamento, estabilidade, rapidez de resposta e eficiência computacional. Essa comparação é amplamente empregada na literatura como forma de validar novas estratégias de sintonia automática de controladores PID.
 
 #### Etapa 7: Programa Experimental
 
